@@ -1,0 +1,285 @@
+ <!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Mira's Blend | Admin</title>
+
+    <link
+        rel="stylesheet"
+        href="admin.css"
+    >
+
+</head>
+
+
+<body>
+
+
+<!-- =====================================================
+     LOGIN SCREEN
+====================================================== -->
+
+<div id="loginScreen" class="login-screen">
+
+    <div class="login-box">
+
+        <div class="login-logo">
+            <a href="#hero"> <img src="mirablend asset/photo_2026-07-04_20-57-47.jpg" height="100px" width="100px" alt="logo"></a>
+        </div>
+
+        <h1>Mira's Blend</h1>
+
+        <p class="login-subtitle">
+            Administrator Dashboard
+        </p>
+
+
+        <form id="loginForm">
+
+            <label for="adminPassword">
+                Admin Password
+            </label>
+
+            <input
+                type="password"
+                id="adminPassword"
+                placeholder="Enter admin password"
+                required
+            >
+
+            <button type="submit">
+                Sign In
+            </button>
+
+            <p
+                id="loginMessage"
+                class="login-message"
+            ></p>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<!-- =====================================================
+     ADMIN DASHBOARD
+====================================================== -->
+
+<div
+    id="dashboard"
+    class="dashboard hidden"
+>
+
+
+    <!-- =================================================
+         SIDEBAR
+    ================================================== -->
+
+    <aside class="sidebar">
+
+        <div class="brand">
+
+            <div class="brand-logo">
+                <a href="#hero"> <img src="mirablend asset/photo_2026-07-04_20-57-47.jpg" height="50px" width="50px" alt="logo"></a>
+            </div>
+
+            <div>
+
+                <h2>Mira's Blend</h2>
+
+                <span>
+                    Admin Panel
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <nav>
+
+            <a
+                href="#"
+                class="nav-item active"
+            >
+                📦 Orders
+            </a>
+
+        </nav>
+
+
+        <button
+            id="logoutButton"
+            class="logout-button"
+        >
+            Logout
+        </button>
+
+    </aside>
+
+
+    <!-- =================================================
+         MAIN CONTENT
+    ================================================== -->
+
+    <main class="main-content">
+
+
+        <!-- HEADER -->
+
+        <header class="dashboard-header">
+
+            <div>
+
+                <p class="eyebrow">
+                    BUSINESS MANAGEMENT
+                </p>
+
+                <h1>Orders</h1>
+
+                <p>
+                    Manage and track Mira's Blend customer orders.
+                </p>
+
+            </div>
+
+        </header>
+
+
+        <!-- =================================================
+             SUMMARY CARDS
+        ================================================== -->
+
+        <section class="stats-grid">
+
+            <div class="stat-card">
+
+                <span>
+                    Total Orders
+                </span>
+
+                <strong id="totalOrders">
+                    0
+                </strong>
+
+            </div>
+
+
+            <div class="stat-card pending-card">
+
+                <span>
+                    Pending
+                </span>
+
+                <strong id="pendingOrders">
+                    0
+                </strong>
+
+            </div>
+
+
+            <div class="stat-card processing-card">
+
+                <span>
+                    Processing
+                </span>
+
+                <strong id="processingOrders">
+                    0
+                </strong>
+
+            </div>
+
+
+            <div class="stat-card completed-card">
+
+                <span>
+                    Completed
+                </span>
+
+                <strong id="completedOrders">
+                    0
+                </strong>
+
+            </div>
+
+
+            <div class="stat-card cancelled-card">
+
+                <span>
+                    Cancelled
+                </span>
+
+                <strong id="cancelledOrders">
+                    0
+                </strong>
+
+            </div>
+
+        </section>
+
+
+        <!-- =================================================
+             ORDERS
+        ================================================== -->
+
+        <section class="orders-section">
+
+            <div class="section-heading">
+
+                <div>
+
+                    <h2>
+                        Customer Orders
+                    </h2>
+
+                    <p>
+                        Orders are stored securely in your SQLite database.
+                    </p>
+
+                </div>
+
+
+                <button
+                    id="refreshButton"
+                    class="refresh-button"
+                >
+                    ↻ Refresh
+                </button>
+
+            </div>
+
+
+            <div
+                id="ordersContainer"
+                class="orders-container"
+            >
+
+                <!-- JavaScript will place orders here -->
+
+            </div>
+
+        </section>
+
+
+    </main>
+
+</div>
+
+
+<script src="admin.js"></script>
+
+</body>
+
+</html>
