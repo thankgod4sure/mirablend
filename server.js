@@ -1,23 +1,11 @@
- // ======================================================
+// ======================================================
 // MIRA'S BLEND
-// COMPLETE BACKEND SERVER
+// POSTGRESQL BACKEND SERVER
 // ======================================================
 
-
-// ======================================================
-// IMPORT PACKAGES
-// ======================================================
-
-// Express creates our backend server.
 const express = require("express");
-
-// SQLite allows Node.js to communicate with our database.
-const sqlite3 = require("sqlite3").verbose();
-
-// dotenv loads information from our .env file.
+const { Pool } = require("pg");
 require("dotenv").config();
-
-// express-session keeps the admin logged in.
 const session = require("express-session");
 
 
@@ -29,22 +17,20 @@ const app = express();
 
 
 // ======================================================
-// BASIC SETTINGS
+// PORT
 // ======================================================
 
-// Our website will run on port 3000.
-const PORT = 3000;
+// Render provides its own PORT.
+// Locally we use 3000.
+const PORT = process.env.PORT || 3000;
 
 
 // ======================================================
 // MIDDLEWARE
 // ======================================================
 
-// Allows the server to receive JSON from JavaScript.
 app.use(express.json());
 
-
-// Allows the server to receive normal form data.
 app.use(express.urlencoded({ extended: true }));
 
 
@@ -52,16 +38,6 @@ app.use(express.urlencoded({ extended: true }));
 // ADMIN LOGIN SESSION
 // ======================================================
 
-// This remembers that the administrator has logged in.
-//
-// Example:
-//
-// Admin logs in
-//      ↓
-// Server creates a session
-//      ↓
-// Admin can open the dashboard
-//
 app.use(
     session({
         secret: process.env.SESSION_SECRET,
@@ -73,10 +49,8 @@ app.use(
         cookie: {
             httpOnly: true,
 
-            // For local development this is false.
-            // When the website is deployed with HTTPS,
-            // this should be changed to true.
-            secure: false,
+            // HTTPS on Render
+            secure: process.env.NODE_ENV === "production",
 
             maxAge: 1000 * 60 * 60 * 8
         }
@@ -85,10 +59,9 @@ app.use(
 
 
 // ======================================================
-// SERVE WEBSITE FILES
+// SERVE WEBSITE
 // ======================================================
 
-// Everything inside "public" can be opened by the browser.
 app.use(express.static("public"));
 
 
@@ -96,166 +69,101 @@ app.use(express.static("public"));
 // HOME PAGE
 // ======================================================
 
-// When somebody visits:
-//
-// http://localhost:3000
-//
-// show the Mira's Blend website.
-//
-// Your existing HTML file is called mirablend.html.
 app.get("/", (req, res) => {
 
-    res.sendFile(__dirname + "/public/mirablend.html");
+    res.sendFile(__dirname + "/public/index.html");
 
 });
 
 
 // ======================================================
-// SQLITE DATABASE
+// POSTGRESQL DATABASE
+// ======================================================
+ 
+const pool = new Pool({
+
+    connectionString: process.env.DATABASE_URL,
+
+    ssl: { rejectUnauthorized: false }
+
+});
+
+// ======================================================
+// DATABASE CONNECTION TEST
 // ======================================================
 
-// SQLite creates orders.db automatically if it doesn't exist.
-//
-// This file stores our business orders.
-const db = new sqlite3.Database("./orders.db", (err) => {
+pool.connect()
+    .then(client => {
 
-    if (err) {
+        console.log(
+            "PostgreSQL database connected successfully."
+        );
+
+        client.release();
+
+    })
+    .catch(error => {
 
         console.error(
             "Database connection failed:",
-            err.message
+            error.message
         );
 
-    } else {
-
-        console.log(
-            "SQLite database connected successfully."
-        );
-
-    }
-
-});
+    });
 
 
 // ======================================================
 // CREATE ORDERS TABLE
 // ======================================================
 
-// This creates the orders table if it doesn't exist.
-//
-// Think of it like an Excel spreadsheet:
-//
-// ID | Product | Quantity | Address | Phone | Status
-//
-db.run(`
-    CREATE TABLE IF NOT EXISTS orders (
+async function createOrdersTable() {
 
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+    try {
 
-        product TEXT NOT NULL,
+        await pool.query(`
 
-        quantity INTEGER NOT NULL,
+            CREATE TABLE IF NOT EXISTS orders (
 
-        address TEXT NOT NULL,
+                id SERIAL PRIMARY KEY,
 
-        phone TEXT NOT NULL,
+                product TEXT NOT NULL,
 
-        status TEXT NOT NULL DEFAULT 'Pending',
+                quantity INTEGER NOT NULL,
 
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                address TEXT NOT NULL,
 
-    )
-`, (err) => {
+                phone TEXT NOT NULL,
 
-    if (err) {
+                status TEXT NOT NULL DEFAULT 'Pending',
 
-        console.error(
-            "Could not create orders table:",
-            err.message
-        );
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 
-    } else {
+            )
+
+        `);
 
         console.log("Orders table is ready.");
 
-    }
-
-});
-
-
-// ======================================================
-// DATABASE MIGRATION
-// ======================================================
-
-// If you created orders.db earlier,
-// the old table may not have the "status" column.
-//
-// This checks whether status already exists.
-//
-// If it doesn't exist, we add it.
-//
-db.all(`PRAGMA table_info(orders)`, [], (err, columns) => {
-
-    if (err) {
+    } catch (error) {
 
         console.error(
-            "Could not inspect orders table:",
-            err.message
-        );
-
-        return;
-    }
-
-
-    const hasStatusColumn = columns.some(
-        column => column.name === "status"
-    );
-
-
-    if (!hasStatusColumn) {
-
-        db.run(
-            `ALTER TABLE orders
-             ADD COLUMN status TEXT NOT NULL DEFAULT 'Pending'`,
-            (alterErr) => {
-
-                if (alterErr) {
-
-                    console.error(
-                        "Could not add status column:",
-                        alterErr.message
-                    );
-
-                } else {
-
-                    console.log(
-                        "Status column added to orders table."
-                    );
-
-                }
-
-            }
+            "Could not create orders table:",
+            error.message
         );
 
     }
 
-});
+}
+
+createOrdersTable();
 
 
 // ======================================================
 // CUSTOMER CREATES ORDER
 // ======================================================
 
-// The customer website sends an order here:
-//
-// POST /api/orders
-//
-// This route does NOT require admin login.
-//
-// Customers need to be able to place orders.
-app.post("/api/orders", (req, res) => {
+app.post("/api/orders", async (req, res) => {
 
-    // Get the customer's information.
     const {
         product,
         quantity,
@@ -268,7 +176,6 @@ app.post("/api/orders", (req, res) => {
     // VALIDATION
     // ==================================================
 
-    // Make sure the customer supplied everything.
     if (
         !product ||
         !quantity ||
@@ -292,58 +199,44 @@ app.post("/api/orders", (req, res) => {
     // SAVE ORDER
     // ==================================================
 
-    const sql = `
-        INSERT INTO orders
-        (
-            product,
-            quantity,
-            address,
-            phone,
-            status
-        )
+    try {
 
-        VALUES (?, ?, ?, ?, 'Pending')
-    `;
+        const result = await pool.query(
 
+            `
+            INSERT INTO orders
+            (
+                product,
+                quantity,
+                address,
+                phone,
+                status
+            )
 
-    const values = [
-        product,
-        quantity,
-        address,
-        phone
-    ];
+            VALUES ($1, $2, $3, $4, 'Pending')
 
+            RETURNING id
+            `,
 
-    db.run(sql, values, function (err) {
+            [
+                product,
+                quantity,
+                address,
+                phone
+            ]
 
-        if (err) {
-
-            console.error(
-                "Could not save order:",
-                err.message
-            );
-
-            return res.status(500).json({
-
-                success: false,
-
-                message:
-                    "Could not save order."
-
-            });
-
-        }
-
-
-        // SQLite gives the new order a unique ID.
-        console.log(
-            "New order saved. ID:",
-            this.lastID
         );
 
 
-        // Tell the customer's browser that
-        // the order was successfully saved.
+        const orderId = result.rows[0].id;
+
+
+        console.log(
+            "New order saved. ID:",
+            orderId
+        );
+
+
         res.status(201).json({
 
             success: true,
@@ -352,11 +245,29 @@ app.post("/api/orders", (req, res) => {
                 "Order saved successfully.",
 
             orderId:
-                this.lastID
+                orderId
 
         });
 
-    });
+
+    } catch (error) {
+
+        console.error(
+            "Could not save order:",
+            error.message
+        );
+
+
+        res.status(500).json({
+
+            success: false,
+
+            message:
+                "Could not save order."
+
+        });
+
+    }
 
 });
 
@@ -365,23 +276,15 @@ app.post("/api/orders", (req, res) => {
 // ADMIN LOGIN
 // ======================================================
 
-// The admin page sends:
-//
-// POST /api/admin/login
-//
-// with the password.
 app.post("/api/admin/login", (req, res) => {
 
     const { password } = req.body;
 
 
-    // Compare the entered password with
-    // the password stored in .env.
     if (
         password === process.env.ADMIN_PASSWORD
     ) {
 
-        // Login successful.
         req.session.isAdmin = true;
 
 
@@ -389,19 +292,20 @@ app.post("/api/admin/login", (req, res) => {
 
             success: true,
 
-            message: "Admin login successful."
+            message:
+                "Admin login successful."
 
         });
 
     }
 
 
-    // Wrong password.
     res.status(401).json({
 
         success: false,
 
-        message: "Incorrect password."
+        message:
+            "Incorrect password."
 
     });
 
@@ -412,9 +316,6 @@ app.post("/api/admin/login", (req, res) => {
 // CHECK ADMIN LOGIN
 // ======================================================
 
-// This protects our admin API.
-//
-// Only somebody who has logged in can access orders.
 function requireAdmin(req, res, next) {
 
     if (req.session.isAdmin) {
@@ -427,7 +328,8 @@ function requireAdmin(req, res, next) {
 
             success: false,
 
-            message: "Admin login required."
+            message:
+                "Admin login required."
 
         });
 
@@ -440,8 +342,6 @@ function requireAdmin(req, res, next) {
 // CHECK CURRENT ADMIN SESSION
 // ======================================================
 
-// The admin page uses this to know whether
-// the administrator is already logged in.
 app.get(
     "/api/admin/me",
     (req, res) => {
@@ -487,51 +387,51 @@ app.post(
 // GET ALL ORDERS
 // ======================================================
 
-// Only the administrator can see customer orders.
 app.get(
     "/api/orders",
     requireAdmin,
-    (req, res) => {
+    async (req, res) => {
 
-        const sql = `
-            SELECT *
+        try {
 
-            FROM orders
+            const result = await pool.query(`
 
-            ORDER BY id DESC
-        `;
+                SELECT *
 
+                FROM orders
 
-        db.all(sql, [], (err, rows) => {
+                ORDER BY id DESC
 
-            if (err) {
-
-                console.error(
-                    "Could not get orders:",
-                    err.message
-                );
-
-                return res.status(500).json({
-
-                    success: false,
-
-                    message:
-                        "Could not get orders."
-
-                });
-
-            }
+            `);
 
 
             res.json({
 
                 success: true,
 
-                orders: rows
+                orders: result.rows
 
             });
 
-        });
+
+        } catch (error) {
+
+            console.error(
+                "Could not get orders:",
+                error.message
+            );
+
+
+            res.status(500).json({
+
+                success: false,
+
+                message:
+                    "Could not get orders."
+
+            });
+
+        }
 
     }
 );
@@ -541,34 +441,36 @@ app.get(
 // UPDATE ORDER STATUS
 // ======================================================
 
-// The admin can change an order to:
-//
-// Pending
-// Processing
-// Completed
-// Cancelled
-//
 app.patch(
     "/api/orders/:id/status",
     requireAdmin,
-    (req, res) => {
+    async (req, res) => {
 
         const orderId = req.params.id;
 
         const { status } = req.body;
 
 
-        // Only these statuses are allowed.
+        // ==================================================
+        // ALLOWED STATUSES
+        // ==================================================
+
         const allowedStatuses = [
+
             "Pending",
+
             "Processing",
+
             "Completed",
+
             "Cancelled"
+
         ];
 
 
-        // Make sure the status is valid.
-        if (!allowedStatuses.includes(status)) {
+        if (
+            !allowedStatuses.includes(status)
+        ) {
 
             return res.status(400).json({
 
@@ -582,66 +484,70 @@ app.patch(
         }
 
 
-        const sql = `
-            UPDATE orders
+        try {
 
-            SET status = ?
+            const result = await pool.query(
 
-            WHERE id = ?
-        `;
+                `
+                UPDATE orders
 
+                SET status = $1
 
-        db.run(
-            sql,
-            [status, orderId],
-            function (err) {
+                WHERE id = $2
 
-                if (err) {
+                RETURNING id
+                `,
 
-                    console.error(
-                        "Could not update status:",
-                        err.message
-                    );
+                [
+                    status,
+                    orderId
+                ]
 
-                    return res.status(500).json({
-
-                        success: false,
-
-                        message:
-                            "Could not update order."
-
-                    });
-
-                }
+            );
 
 
-                // If no row was changed,
-                // the order ID doesn't exist.
-                if (this.changes === 0) {
+            if (result.rowCount === 0) {
 
-                    return res.status(404).json({
+                return res.status(404).json({
 
-                        success: false,
-
-                        message:
-                            "Order not found."
-
-                    });
-
-                }
-
-
-                res.json({
-
-                    success: true,
+                    success: false,
 
                     message:
-                        "Order status updated."
+                        "Order not found."
 
                 });
 
             }
-        );
+
+
+            res.json({
+
+                success: true,
+
+                message:
+                    "Order status updated."
+
+            });
+
+
+        } catch (error) {
+
+            console.error(
+                "Could not update status:",
+                error.message
+            );
+
+
+            res.status(500).json({
+
+                success: false,
+
+                message:
+                    "Could not update order."
+
+            });
+
+        }
 
     }
 );
@@ -653,17 +559,21 @@ app.patch(
 
 app.listen(PORT, () => {
 
-    console.log("----------------------------------");
+    console.log(
+        "----------------------------------"
+    );
 
     console.log(
         "Mira's Blend server is running."
     );
 
     console.log(
-        `http://localhost:${PORT}`
+        `Port: ${PORT}`
     );
 
-    console.log("----------------------------------");
+    console.log(
+        "----------------------------------"
+    );
 
 });
  
