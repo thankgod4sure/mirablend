@@ -37,8 +37,7 @@ app.use(express.urlencoded({ extended: true }));
 // ======================================================
 // ADMIN LOGIN SESSION
 // ======================================================
-
-app.use(
+ app.use(
     session({
         secret: process.env.SESSION_SECRET,
 
@@ -49,14 +48,14 @@ app.use(
         cookie: {
             httpOnly: true,
 
-            // HTTPS on Render
-            secure: process.env.NODE_ENV === "production",
+            secure: true,
+
+            sameSite: "lax",
 
             maxAge: 1000 * 60 * 60 * 8
         }
     })
 );
-
 
 // ======================================================
 // SERVE WEBSITE
