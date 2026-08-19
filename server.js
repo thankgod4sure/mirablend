@@ -1,4 +1,4 @@
-// ======================================================
+ // ======================================================
 // MIRA'S BLEND
 // POSTGRESQL BACKEND SERVER
 // ======================================================
@@ -6,6 +6,7 @@
 const express = require("express");
 const { Pool } = require("pg");
 const session = require("express-session");
+const pgSession = require("connect-pg-simple")(session);
 require("dotenv").config();
 
 
@@ -35,11 +36,63 @@ app.use(express.urlencoded({ extended: true }));
 
 
 // ======================================================
+// POSTGRESQL DATABASE
+// ======================================================
+
+const pool = new Pool({
+
+    connectionString: process.env.DATABASE_URL,
+
+    ssl: {
+        rejectUnauthorized: false
+    }
+
+});
+
+
+// ======================================================
+// DATABASE CONNECTION TEST
+// ======================================================
+
+pool.connect()
+
+    .then((client) => {
+
+        console.log(
+            "PostgreSQL database connected successfully."
+        );
+
+        client.release();
+
+    })
+
+    .catch((error) => {
+
+        console.error(
+            "Database connection failed:",
+            error.message
+        );
+
+    });
+
+
+// ======================================================
 // ADMIN LOGIN SESSION
 // ======================================================
 
 app.use(
     session({
+
+        store: new pgSession({
+
+            pool: pool,
+
+            tableName: "user_sessions",
+
+            createTableIfMissing: true
+
+        }),
+
         secret: process.env.SESSION_SECRET,
 
         resave: false,
@@ -49,11 +102,19 @@ app.use(
         proxy: true,
 
         cookie: {
+
             httpOnly: true,
-            secure: true,
+
+            secure:
+                process.env.NODE_ENV === "production",
+
             sameSite: "lax",
-            maxAge: 1000 * 60 * 60 * 8
+
+            maxAge:
+                1000 * 60 * 60 * 8
+
         }
+
     })
 );
 
@@ -70,43 +131,12 @@ app.use(express.static("public"));
 // ======================================================
 
 app.get("/", (req, res) => {
-    res.sendFile(__dirname + "/public/index.html");
+
+    res.sendFile(
+        __dirname + "/public/index.html"
+    );
+
 });
-
-
-// ======================================================
-// POSTGRESQL DATABASE
-// ======================================================
-
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-
-    ssl: {
-        rejectUnauthorized: false
-    }
-});
-
-
-// ======================================================
-// DATABASE CONNECTION
-// ======================================================
-
-pool.connect()
-    .then((client) => {
-
-        console.log("PostgreSQL database connected successfully.");
-
-        client.release();
-
-    })
-    .catch((error) => {
-
-        console.error(
-            "Database connection failed:",
-            error.message
-        );
-
-    });
 
 
 // ======================================================
@@ -118,18 +148,30 @@ async function createOrdersTable() {
     try {
 
         await pool.query(`
+
             CREATE TABLE IF NOT EXISTS orders (
+
                 id SERIAL PRIMARY KEY,
+
                 product TEXT NOT NULL,
+
                 quantity INTEGER NOT NULL,
+
                 address TEXT NOT NULL,
+
                 phone TEXT NOT NULL,
+
                 status TEXT NOT NULL DEFAULT 'Pending',
+
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+
             )
+
         `);
 
-        console.log("Orders table is ready.");
+        console.log(
+            "Orders table is ready."
+        );
 
     } catch (error) {
 
@@ -139,6 +181,7 @@ async function createOrdersTable() {
         );
 
     }
+
 }
 
 createOrdersTable();
@@ -148,157 +191,197 @@ createOrdersTable();
 // CUSTOMER CREATES ORDER
 // ======================================================
 
-app.post("/api/orders", async (req, res) => {
+app.post(
+    "/api/orders",
+    async (req, res) => {
 
-    const {
-        product,
-        quantity,
-        address,
-        phone
-    } = req.body;
+        const {
+            product,
+            quantity,
+            address,
+            phone
+        } = req.body;
 
 
-    // ==================================================
-    // VALIDATION
-    // ==================================================
+        if (
+            !product ||
+            !quantity ||
+            !address ||
+            !phone
+        ) {
 
-    if (!product || !quantity || !address || !phone) {
+            return res.status(400).json({
 
-        return res.status(400).json({
-            success: false,
-            message: "Please provide all order information."
-        });
+                success: false,
+
+                message:
+                    "Please provide all order information."
+
+            });
+
+        }
+
+
+        try {
+
+            const result =
+                await pool.query(
+
+                    `
+                    INSERT INTO orders
+                    (
+                        product,
+                        quantity,
+                        address,
+                        phone,
+                        status
+                    )
+
+                    VALUES
+                    ($1, $2, $3, $4, 'Pending')
+
+                    RETURNING id
+                    `,
+
+                    [
+                        product,
+                        quantity,
+                        address,
+                        phone
+                    ]
+
+                );
+
+
+            const orderId =
+                result.rows[0].id;
+
+
+            console.log(
+                "New order saved. ID:",
+                orderId
+            );
+
+
+            res.status(201).json({
+
+                success: true,
+
+                message:
+                    "Order saved successfully.",
+
+                orderId:
+                    orderId
+
+            });
+
+
+        } catch (error) {
+
+            console.error(
+                "Could not save order:",
+                error.message
+            );
+
+
+            res.status(500).json({
+
+                success: false,
+
+                message:
+                    "Could not save order."
+
+            });
+
+        }
 
     }
-
-
-    // ==================================================
-    // SAVE ORDER
-    // ==================================================
-
-    try {
-
-        const result = await pool.query(
-            `
-            INSERT INTO orders
-            (
-                product,
-                quantity,
-                address,
-                phone,
-                status
-            )
-            VALUES
-            ($1, $2, $3, $4, 'Pending')
-            RETURNING id
-            `,
-            [
-                product,
-                quantity,
-                address,
-                phone
-            ]
-        );
-
-
-        const orderId = result.rows[0].id;
-
-        console.log(
-            "New order saved. ID:",
-            orderId
-        );
-
-
-        res.status(201).json({
-            success: true,
-            message: "Order saved successfully.",
-            orderId: orderId
-        });
-
-
-    } catch (error) {
-
-        console.error(
-            "Could not save order:",
-            error.message
-        );
-
-
-        res.status(500).json({
-            success: false,
-            message: "Could not save order."
-        });
-
-    }
-
-});
+);
 
 
 // ======================================================
 // ADMIN LOGIN
 // ======================================================
 
-app.post("/api/admin/login", (req, res) => {
+app.post(
+    "/api/admin/login",
+    (req, res) => {
 
-    const { password } = req.body;
-
-
-    // ==================================================
-    // CHECK PASSWORD
-    // ==================================================
-
-    if (password !== process.env.ADMIN_PASSWORD) {
-
-        return res.status(401).json({
-            success: false,
-            message: "Incorrect password."
-        });
-
-    }
+        const {
+            password
+        } = req.body;
 
 
-    // ==================================================
-    // CREATE SESSION
-    // ==================================================
+        if (
+            password !==
+            process.env.ADMIN_PASSWORD
+        ) {
 
-    req.session.isAdmin = true;
+            return res.status(401).json({
 
-
-    // Make sure the session is saved
-    // before telling the browser login succeeded.
-
-    req.session.save((error) => {
-
-        if (error) {
-
-            console.error(
-                "Could not save admin session:",
-                error.message
-            );
-
-            return res.status(500).json({
                 success: false,
-                message: "Could not create admin session."
+
+                message:
+                    "Incorrect password."
+
             });
 
         }
 
 
-        res.json({
-            success: true,
-            message: "Admin login successful."
+        req.session.isAdmin = true;
+
+
+        req.session.save((error) => {
+
+            if (error) {
+
+                console.error(
+                    "Could not save admin session:",
+                    error.message
+                );
+
+                return res.status(500).json({
+
+                    success: false,
+
+                    message:
+                        "Could not create admin session."
+
+                });
+
+            }
+
+
+            console.log(
+                "Admin login successful."
+            );
+
+
+            res.json({
+
+                success: true,
+
+                message:
+                    "Admin login successful."
+
+            });
+
         });
 
-    });
-
-});
+    }
+);
 
 
 // ======================================================
 // ADMIN PROTECTION
 // ======================================================
 
-function requireAdmin(req, res, next) {
+function requireAdmin(
+    req,
+    res,
+    next
+) {
 
     if (
         req.session &&
@@ -311,8 +394,12 @@ function requireAdmin(req, res, next) {
 
 
     return res.status(401).json({
+
         success: false,
-        message: "Admin login required."
+
+        message:
+            "Admin login required."
+
     });
 
 }
@@ -322,17 +409,22 @@ function requireAdmin(req, res, next) {
 // CHECK ADMIN LOGIN
 // ======================================================
 
-app.get("/api/admin/me", (req, res) => {
+app.get(
+    "/api/admin/me",
+    (req, res) => {
 
-    res.json({
-        loggedIn:
-            !!(
-                req.session &&
-                req.session.isAdmin === true
-            )
-    });
+        res.json({
 
-});
+            loggedIn:
+                !!(
+                    req.session &&
+                    req.session.isAdmin === true
+                )
+
+        });
+
+    }
+);
 
 
 // ======================================================
@@ -354,19 +446,29 @@ app.post(
                 );
 
                 return res.status(500).json({
+
                     success: false,
-                    message: "Could not log out."
+
+                    message:
+                        "Could not log out."
+
                 });
 
             }
 
 
-            res.clearCookie("connect.sid");
+            res.clearCookie(
+                "connect.sid"
+            );
 
 
             res.json({
+
                 success: true,
-                message: "Logged out successfully."
+
+                message:
+                    "Logged out successfully."
+
             });
 
         });
@@ -386,16 +488,25 @@ app.get(
 
         try {
 
-            const result = await pool.query(`
-                SELECT *
-                FROM orders
-                ORDER BY id DESC
-            `);
+            const result =
+                await pool.query(`
+
+                    SELECT *
+
+                    FROM orders
+
+                    ORDER BY id DESC
+
+                `);
 
 
             res.json({
+
                 success: true,
-                orders: result.rows
+
+                orders:
+                    result.rows
+
             });
 
 
@@ -408,8 +519,12 @@ app.get(
 
 
             res.status(500).json({
+
                 success: false,
-                message: "Could not get orders."
+
+                message:
+                    "Could not get orders."
+
             });
 
         }
@@ -427,66 +542,89 @@ app.patch(
     requireAdmin,
     async (req, res) => {
 
-        const orderId = req.params.id;
+        const orderId =
+            req.params.id;
 
-        const { status } = req.body;
+        const {
+            status
+        } = req.body;
 
-
-        // ==================================================
-        // ALLOWED STATUSES
-        // ==================================================
 
         const allowedStatuses = [
+
             "Pending",
+
             "Processing",
+
             "Completed",
+
             "Cancelled"
+
         ];
 
 
-        if (!allowedStatuses.includes(status)) {
+        if (
+            !allowedStatuses.includes(status)
+        ) {
 
             return res.status(400).json({
+
                 success: false,
-                message: "Invalid order status."
+
+                message:
+                    "Invalid order status."
+
             });
 
         }
 
 
-        // ==================================================
-        // UPDATE DATABASE
-        // ==================================================
-
         try {
 
-            const result = await pool.query(
-                `
-                UPDATE orders
-                SET status = $1
-                WHERE id = $2
-                RETURNING id
-                `,
-                [
-                    status,
-                    orderId
-                ]
-            );
+            const result =
+                await pool.query(
+
+                    `
+                    UPDATE orders
+
+                    SET status = $1
+
+                    WHERE id = $2
+
+                    RETURNING id
+                    `,
+
+                    [
+                        status,
+                        orderId
+                    ]
+
+                );
 
 
-            if (result.rowCount === 0) {
+            if (
+                result.rowCount === 0
+            ) {
 
                 return res.status(404).json({
+
                     success: false,
-                    message: "Order not found."
+
+                    message:
+                        "Order not found."
+
                 });
 
             }
 
 
             res.json({
+
                 success: true,
-                message: "Order status updated."
+
+                message:
+                    "Order status updated."
+
             });
 
 
@@ -499,8 +637,12 @@ app.patch(
 
 
             res.status(500).json({
+
                 success: false,
-                message: "Could not update order."
+
+                message:
+                    "Could not update order."
+
             });
 
         }
@@ -513,18 +655,25 @@ app.patch(
 // START SERVER
 // ======================================================
 
-app.listen(PORT, () => {
+app.listen(
+    PORT,
+    () => {
 
-    console.log("----------------------------------");
+        console.log(
+            "----------------------------------"
+        );
 
-    console.log(
-        "Mira's Blend server is running."
-    );
+        console.log(
+            "Mira's Blend server is running."
+        );
 
-    console.log(
-        `Port: ${PORT}`
-    );
+        console.log(
+            `Port: ${PORT}`
+        );
 
-    console.log("----------------------------------");
+        console.log(
+            "----------------------------------"
+        );
 
-});
+    }
+);
