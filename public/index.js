@@ -38,7 +38,7 @@ window.addEventListener("load", () => {
     setTimeout(() => {
         loader.classList.add("hide");
         hero.classList.add("animate");
-    }, 7000);
+    }, 3000);
 });
 const orderBtns = document.querySelectorAll(".order-btn");
 const ordersBtns = document.getElementById(".orders-btn");
