@@ -12,7 +12,7 @@
     width: 100%;
     height: 100%;
     background: linear-gradient(135deg, #6f1095, #580a07, #6d1596);
-    display: flex;
+    display: none;
     justify-content: center;
     align-items: center;
     z-index: 99999;
@@ -412,7 +412,7 @@ margin: 0;
     width: 100%;
     height: 100%;
      background: linear-gradient(135deg, #951010, rgb(219, 214, 214), #961515);
-    display: flex;
+    display: none;
     justify-content: center;
     align-items: center;
     z-index: 99999;
@@ -647,7 +647,7 @@ nav ul li a::after{
     width: 100%;
     height: 100%;
       background: linear-gradient(135deg, #6b1095, rgb(104, 14, 7), #7c1596); 
-    display: flex;
+    display: none;
     justify-content: center;
     align-items: center;
     z-index: 99999;
@@ -876,7 +876,7 @@ nav ul li a::after{
     width: 100%;
     height: 100%;
     background: linear-gradient(135deg, #6b1095, rgb(104, 14, 7), #7c1596);
-    display: flex;
+display: none;
     justify-content: center;
     align-items: center;
     z-index: 99999;
