@@ -297,16 +297,7 @@ margin: 0;
     font-size:75px;
     margin-left: 30px;
 }
-
-.hero-text,
-.hero-image,
-.badge,
-.hero-title,
-.hero-description,
-.hero-btns,
-.reviews{
-    opacity: 0;
-}
+ 
 /* 
 #hero.animate .hero-text{
     animation: slideLeft 1s ease forwards;
