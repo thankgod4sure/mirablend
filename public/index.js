@@ -30,16 +30,16 @@ menuCancel.addEventListener("click", () => {
 
 //     }, 7000);
 
-// });
-const loader = document.querySelector(".loader");
-const hero = document.querySelector("#hero");
+// // });
+// const loader = document.querySelector(".loader");
+// const hero = document.querySelector("#hero");
 
-window.addEventListener("load", () => {
-    setTimeout(() => {
-        loader.classList.add("hide");
-        hero.classList.add("animate");
-    }, 3000);
-});
+// window.addEventListener("load", () => {
+//     setTimeout(() => {
+//         loader.classList.add("hide");
+//         hero.classList.add("animate");
+//     }, 3000);
+// });
 const orderBtns = document.querySelectorAll(".order-btn");
 const ordersBtns = document.getElementById(".orders-btn");
 const modal = document.getElementById("orderModal");

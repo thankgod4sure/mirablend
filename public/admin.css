@@ -17,7 +17,7 @@
 
 body {
     font-family: Arial, sans-serif;
-    background: #f7f4ef;
+    background: rgb(250, 250, 250);
     color: #24152d;
 }
 
@@ -212,7 +212,7 @@ body {
 
     min-height: 100vh;
 
-    background: #23002f;
+    background: #4f0b65;
 
     color: white;
 
@@ -314,7 +314,7 @@ body {
 
 .logout-button:hover {
 
-    background: rgba(255,255,255,.1);
+    background: rgba(255, 255, 255, 0.167);
 }
 
 
