@@ -307,7 +307,7 @@ margin: 0;
 .reviews{
     opacity: 0;
 }
-
+/* 
 #hero.animate .hero-text{
     animation: slideLeft 1s ease forwards;
 }
@@ -378,7 +378,7 @@ margin: 0;
         opacity: 1;
         transform: translateY(0);
     }
-}
+} */
 
 /* resposiveness for header and hero section */
 /* MENU TOGGLE */
